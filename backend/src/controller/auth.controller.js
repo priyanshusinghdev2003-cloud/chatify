@@ -1,6 +1,8 @@
 import bcrypt from "bcryptjs";
 import User from "../models/user.model.js";
 import jwt from "jsonwebtoken";
+import { sendWelcomeEmail } from "../emails/emailHandlers.js";
+import "dotenv/config"
 
 //generate token
 const generateToken = async (userId, res) => {
@@ -21,13 +23,17 @@ const generateToken = async (userId, res) => {
 export const Signup = async (req, res) => {
   const { email, fullName, password } = req.body;
   try {
-    if (!email || !fullName || !password) {
+    const name = typeof fullName === "string" ? fullName.trim() : "";
+    const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() :"";
+    const pass = typeof password=== "string" ? password : "";
+
+    if (!normalizedEmail || !name || !pass) {
       return res.status(400).json({
         message: "All fields are required",
         success: false,
       });
     }
-    if (password.length < 6) {
+    if (pass.length < 6) {
       return res.status(400).json({
         message: "Password must be at least 6 characters",
         success: false,
@@ -35,33 +41,37 @@ export const Signup = async (req, res) => {
     }
     //check if email is valid
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    if (!emailRegex.test(normalizedEmail)) {
       return res.status(400).json({
         message: "Invalid email format",
         success: false,
       });
     }
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: normalizedEmail });
     if (user) {
       return res.status(400).json({
-        message: "User already exists with this email",
+        message: "Email already exists with this email",
         success: false,
       });
     }
 
     // hash password
     const salt = await bcrypt.genSalt(10);
-    const hashPassword = await bcrypt.hash(password, salt);
+    const hashPassword = await bcrypt.hash(pass, salt);
     const newUser = new User({
-      email,
-      fullName,
+      email: normalizedEmail,
+      fullName:name,
       password: hashPassword,
     });
     if (newUser) {
+       await newUser.save();
       const token = await generateToken(newUser._id, res);
-
-      await newUser.save();
+       try{
+        await sendWelcomeEmail(newUser.email, newUser.fullName, process.env.CLIENT_URL)
+      }catch(err){
+        console.log("Failed to send welcome email: ", err)
+      }
       return res.status(201).json({
         message: "User created successfully",
         success: true,
@@ -71,6 +81,8 @@ export const Signup = async (req, res) => {
           profilePic: newUser.profilePic,
         },
       });
+
+     
     } else {
       return res.status(400).json({
         message: "User not created",
