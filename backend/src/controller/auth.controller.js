@@ -75,7 +75,8 @@ export const Signup = async (req, res) => {
       return res.status(201).json({
         message: "User created successfully",
         success: true,
-        user: {
+        data: {
+          _id: user._id,
           email: newUser.email,
           fullName: newUser.fullName,
           profilePic: newUser.profilePic,
@@ -91,9 +92,69 @@ export const Signup = async (req, res) => {
     }
   } catch (error) {
     
-    return res.status(400).json({
+    return res.status(500).json({
       message: error.message,
       success: false,
     });
   }
 };
+
+export const Login = async (req,res)=>{
+  const {email, password}=req.body
+  try {
+      const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() :"";
+      const pass = typeof password=== "string" ? password : "";
+      if(!normalizedEmail || !pass){
+        return res.status(400).json({
+          message: "All Fields are required",
+          success: false
+        })
+      }
+      const user = await User.findOne({email: normalizedEmail})
+      if(!user) return res.status(400).json({
+        message: "Invalid Credentials",
+        success: false
+      })
+
+      const isPasswordCorrect = await bcrypt.compare(pass, user.password)
+      if(!isPasswordCorrect) return res.status(400).json({
+        message: "Invalid Credentials",
+        success: false
+      })
+
+      await generateToken(user._id, res);
+      return res.status(200).json({
+        success: true,
+        message: "Login Successfully",
+        data:{
+          _id: user._id,
+          fullName: user.fullName,
+          email: user.email,
+          profilePic: user.profilePic
+        }
+      })
+    
+  } catch (error) {
+    return res.status(500).json({
+      message: error,
+      success: false
+    })
+  }
+}
+
+export const Logout = async (_,res)=>{
+  try {
+ 
+    return res.cookie("jwt", "",{
+      maxAge:0
+    }).status(200).json({
+      message: "Logout Successfully",
+      success: true
+    })
+  } catch (error) {
+    return res.status(500).json({
+      message: error,
+      success: false
+    })
+  }
+}
