@@ -3,7 +3,8 @@ import express from "express";
 import connectDB from "./db/db.js";
 import authRouter from "./routes/auth.route.js"
 import path from "path"
-import cookieParser from "cookie-parser"
+import cookieParser from "cookie-parser";
+
 dotenv.config()
 
 const app = express();
@@ -17,9 +18,9 @@ app.get("/api/test", (req,res)=>{
     
 })
 
+app.use(cookieParser());
 app.use(express.json())
 app.use("/api/auth", authRouter)
-app.use(cookieParser())
 
 // make ready for deployment
 if(process.env.NODE_ENV === "production"){
