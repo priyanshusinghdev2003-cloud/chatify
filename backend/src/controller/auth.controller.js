@@ -1,6 +1,9 @@
 import bcrypt from "bcryptjs";
 import User from "../models/user.model.js";
 import jwt from "jsonwebtoken";
+import fs from "fs";
+import { v2 as cloudinary } from "cloudinary";
+import { uploadToCloudinary } from "../utils/cloudinary.js";
 import { sendWelcomeEmail } from "../emails/emailHandlers.js";
 import "dotenv/config"
 
@@ -158,3 +161,69 @@ export const Logout = async (_,res)=>{
     })
   }
 }
+
+//profile-update
+export const updateProfile = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { name, email } = req.body;
+    let imageUrl;
+
+    const normalizedEmail =
+      typeof email === "string" ? email.trim().toLowerCase() : null;
+
+    if (normalizedEmail && normalizedEmail !== req.user.email) {
+      const existingEmail = await User.findOne({ email: normalizedEmail });
+      if (existingEmail) {
+        return res.status(400).json({
+          success: false,
+          message: "Email already in use",
+        });
+      }
+    }
+
+    // update ProfilePic 
+    if (req.file) {
+      // 🔹 Step 1: Delete old image from Cloudinary (if exists)
+      if (req.user.profilePic) {
+        try {
+          const segments = req.user.profilePic.split("/");
+          const filename = segments.pop(); // xyz987.png
+          const publicId = filename.split(".")[0]; // xyz987
+
+          await cloudinary.uploader.destroy(`profiles/${publicId}`);
+          console.log("Old profile picture deleted:", publicId);
+        } catch (deleteError) {
+          console.error("Error deleting old image from Cloudinary:", deleteError);
+        }
+      }
+
+      // 🔹 Step 2: Upload new image
+      imageUrl = await uploadToCloudinary(req.file.path);
+      fs.unlinkSync(req.file.path); // Remove local temp file
+    }
+
+   
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      {
+        name: name || req.user.name,
+        email: normalizedEmail || req.user.email,
+        profilePic: imageUrl || req.user.profilePic,
+      },
+      { new: true } 
+    ).select("-password"); 
+
+    return res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      user: updatedUser,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update profile",
+      error: error.message,
+    });
+  }
+};
