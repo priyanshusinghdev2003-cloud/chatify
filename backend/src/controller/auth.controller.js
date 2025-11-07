@@ -22,6 +22,20 @@ const generateToken = async (userId, res) => {
   })
 };
 
+//generate unique username
+const generateUniqueUsername = async (fullName) => {
+  const baseUsername = fullName.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '');
+  let username = baseUsername;
+  let counter = 1;
+
+  while (await User.findOne({ username })) {
+    username = `${baseUsername}${counter}`;
+    counter++;
+  }
+
+  return username;
+};
+
 // SignUp controller
 export const Signup = async (req, res) => {
   const { email, fullName, password } = req.body;
@@ -62,10 +76,15 @@ export const Signup = async (req, res) => {
     // hash password
     const salt = await bcrypt.genSalt(10);
     const hashPassword = await bcrypt.hash(pass, salt);
+
+    // generate unique username
+    const username = await generateUniqueUsername(name);
+
     const newUser = new User({
       email: normalizedEmail,
       fullName:name,
       password: hashPassword,
+      username: username,
     });
     if (newUser) {
        await newUser.save();
@@ -79,10 +98,11 @@ export const Signup = async (req, res) => {
         message: "User created successfully",
         success: true,
         data: {
-          _id: user._id,
+          _id: newUser._id,
           email: newUser.email,
           fullName: newUser.fullName,
           profilePic: newUser.profilePic,
+          username: newUser.username,
         },
       });
 
@@ -133,7 +153,8 @@ export const Login = async (req,res)=>{
           _id: user._id,
           fullName: user.fullName,
           email: user.email,
-          profilePic: user.profilePic
+          profilePic: user.profilePic,
+          username: user.username
         }
       })
     
@@ -182,7 +203,7 @@ export const updateProfile = async (req, res) => {
       }
     }
 
-    // update ProfilePic 
+    // update ProfilePic
     if (req.file) {
       // 🔹 Step 1: Delete old image from Cloudinary (if exists)
       if (req.user.profilePic) {
@@ -203,7 +224,7 @@ export const updateProfile = async (req, res) => {
       fs.unlinkSync(req.file.path); // Remove local temp file
     }
 
-   
+
     const updatedUser = await User.findByIdAndUpdate(
       userId,
       {
@@ -211,8 +232,8 @@ export const updateProfile = async (req, res) => {
         email: normalizedEmail || req.user.email,
         profilePic: imageUrl || req.user.profilePic,
       },
-      { new: true } 
-    ).select("-password"); 
+      { new: true }
+    ).select("-password");
 
     return res.status(200).json({
       success: true,
