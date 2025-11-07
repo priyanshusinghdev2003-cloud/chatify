@@ -4,12 +4,12 @@ const UserSchema = new mongoose.Schema({
     email: {
         type: String,
         required: true,
-        unique: true,        
+        unique: true,
     },
     fullName: {
         type: String,
         required: true
-        
+
     },
     password: {
         type: String,
@@ -18,6 +18,11 @@ const UserSchema = new mongoose.Schema({
     profilePic :{
         type: String,
         default: ""
+    },
+    username: {
+        type: String,
+        unique: true,
+        required: true
     },
      resetCode: String,
     resetCodeExpire: Date,
