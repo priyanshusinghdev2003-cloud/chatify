@@ -5,26 +5,27 @@ import fs from "fs";
 import { v2 as cloudinary } from "cloudinary";
 import { uploadToCloudinary } from "../utils/cloudinary.js";
 import { sendWelcomeEmail } from "../emails/emailHandlers.js";
-import "dotenv/config"
+import "dotenv/config";
 
 //generate token
 const generateToken = async (userId, res) => {
-  const token = await jwt.sign(
-    {userId},
-    process.env.JWT_SECCRET,
-    { expiresIn: "7d" }
-  );
-  res.cookie("jwt", token , {
+  const token = await jwt.sign({ userId }, process.env.JWT_SECCRET, {
+    expiresIn: "7d",
+  });
+  res.cookie("jwt", token, {
     maxAge: 7 * 24 * 60 * 60 * 1000,
     httpOnly: true,
     sameSite: "strict",
     secure: process.env.NODE_ENV === "development" ? false : true,
-  })
+  });
 };
 
 //generate unique username
 const generateUniqueUsername = async (fullName) => {
-  const baseUsername = fullName.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '');
+  const baseUsername = fullName
+    .toLowerCase()
+    .replace(/\s+/g, "")
+    .replace(/[^a-z0-9]/g, "");
   let username = baseUsername;
   let counter = 1;
 
@@ -41,8 +42,9 @@ export const Signup = async (req, res) => {
   const { email, fullName, password } = req.body;
   try {
     const name = typeof fullName === "string" ? fullName.trim() : "";
-    const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() :"";
-    const pass = typeof password=== "string" ? password : "";
+    const normalizedEmail =
+      typeof email === "string" ? email.trim().toLowerCase() : "";
+    const pass = typeof password === "string" ? password : "";
 
     if (!normalizedEmail || !name || !pass) {
       return res.status(400).json({
@@ -82,17 +84,21 @@ export const Signup = async (req, res) => {
 
     const newUser = new User({
       email: normalizedEmail,
-      fullName:name,
+      fullName: name,
       password: hashPassword,
       username: username,
     });
     if (newUser) {
-       await newUser.save();
+      await newUser.save();
       const token = await generateToken(newUser._id, res);
-       try{
-        await sendWelcomeEmail(newUser.email, newUser.fullName, process.env.CLIENT_URL)
-      }catch(err){
-        console.log("Failed to send welcome email: ", err)
+      try {
+        await sendWelcomeEmail(
+          newUser.email,
+          newUser.fullName,
+          process.env.CLIENT_URL
+        );
+      } catch (err) {
+        console.log("Failed to send welcome email: ", err);
       }
       return res.status(201).json({
         message: "User created successfully",
@@ -105,8 +111,6 @@ export const Signup = async (req, res) => {
           username: newUser.username,
         },
       });
-
-     
     } else {
       return res.status(400).json({
         message: "User not created",
@@ -114,7 +118,6 @@ export const Signup = async (req, res) => {
       });
     }
   } catch (error) {
-    
     return res.status(500).json({
       message: error.message,
       success: false,
@@ -122,86 +125,76 @@ export const Signup = async (req, res) => {
   }
 };
 
-export const Login = async (req,res)=>{
-  const {email, password}=req.body
+export const Login = async (req, res) => {
+  const { email, password } = req.body;
   try {
-      const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() :"";
-      const pass = typeof password=== "string" ? password : "";
-      if(!normalizedEmail || !pass){
-        return res.status(400).json({
-          message: "All Fields are required",
-          success: false
-        })
-      }
-      const user = await User.findOne({email: normalizedEmail})
-      if(!user) return res.status(400).json({
+    const normalizedEmail =
+      typeof email === "string" ? email.trim().toLowerCase() : "";
+    const pass = typeof password === "string" ? password : "";
+    if (!normalizedEmail || !pass) {
+      return res.status(400).json({
+        message: "All Fields are required",
+        success: false,
+      });
+    }
+    const user = await User.findOne({ email: normalizedEmail });
+    if (!user)
+      return res.status(400).json({
         message: "Invalid Credentials",
-        success: false
-      })
+        success: false,
+      });
 
-      const isPasswordCorrect = await bcrypt.compare(pass, user.password)
-      if(!isPasswordCorrect) return res.status(400).json({
+    const isPasswordCorrect = await bcrypt.compare(pass, user.password);
+    if (!isPasswordCorrect)
+      return res.status(400).json({
         message: "Invalid Credentials",
-        success: false
-      })
+        success: false,
+      });
 
-      await generateToken(user._id, res);
-      return res.status(200).json({
+    await generateToken(user._id, res);
+    return res.status(200).json({
+      success: true,
+      message: "Login Successfully",
+      data: {
+        _id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+        profilePic: user.profilePic,
+        username: user.username,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: error,
+      success: false,
+    });
+  }
+};
+
+export const Logout = async (_, res) => {
+  try {
+    return res
+      .cookie("jwt", "", {
+        maxAge: 0,
+      })
+      .status(200)
+      .json({
+        message: "Logout Successfully",
         success: true,
-        message: "Login Successfully",
-        data:{
-          _id: user._id,
-          fullName: user.fullName,
-          email: user.email,
-          profilePic: user.profilePic,
-          username: user.username
-        }
-      })
-    
+      });
   } catch (error) {
     return res.status(500).json({
       message: error,
-      success: false
-    })
+      success: false,
+    });
   }
-}
-
-export const Logout = async (_,res)=>{
-  try {
- 
-    return res.cookie("jwt", "",{
-      maxAge:0
-    }).status(200).json({
-      message: "Logout Successfully",
-      success: true
-    })
-  } catch (error) {
-    return res.status(500).json({
-      message: error,
-      success: false
-    })
-  }
-}
+};
 
 //profile-update
 export const updateProfile = async (req, res) => {
   try {
     const userId = req.user._id;
-    const { name, email } = req.body;
     let imageUrl;
-
-    const normalizedEmail =
-      typeof email === "string" ? email.trim().toLowerCase() : null;
-
-    if (normalizedEmail && normalizedEmail !== req.user.email) {
-      const existingEmail = await User.findOne({ email: normalizedEmail });
-      if (existingEmail) {
-        return res.status(400).json({
-          success: false,
-          message: "Email already in use",
-        });
-      }
-    }
 
     // update ProfilePic
     if (req.file) {
@@ -215,7 +208,10 @@ export const updateProfile = async (req, res) => {
           await cloudinary.uploader.destroy(`profiles/${publicId}`);
           console.log("Old profile picture deleted:", publicId);
         } catch (deleteError) {
-          console.error("Error deleting old image from Cloudinary:", deleteError);
+          console.error(
+            "Error deleting old image from Cloudinary:",
+            deleteError
+          );
         }
       }
 
@@ -224,12 +220,11 @@ export const updateProfile = async (req, res) => {
       fs.unlinkSync(req.file.path); // Remove local temp file
     }
 
-
     const updatedUser = await User.findByIdAndUpdate(
       userId,
       {
-        name: name || req.user.name,
-        email: normalizedEmail || req.user.email,
+        name: req.user.name,
+        email: req.user.email,
         profilePic: imageUrl || req.user.profilePic,
       },
       { new: true }

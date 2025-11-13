@@ -1,34 +1,39 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React, { useEffect } from 'react'
+import {Routes,Route, Navigate} from "react-router"
+import ChatPage from "./pages/ChatPage"
+import Login from "./pages/Login"
+import Signup from "./pages/Signup"
+import Galaxy from './Galaxy';
+import { useAuthStore } from './store/useAuthStore'
+import PageLoader from './components/PageLoader'
+import {Toaster} from "react-hot-toast"
 
 function App() {
-  const [count, setCount] = useState(0)
+  const {checkAuth,isCheckingAuth,authUser} = useAuthStore()
 
+
+  useEffect(()=>{
+    checkAuth()
+  },[checkAuth])
+
+if(isCheckingAuth) return  <PageLoader />
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+     <div className='min-h-screen relative z-0 flex justify-center items-center p-4 overflow-hidden'>
+  <Galaxy 
+    density={1}
+    glowIntensity={0.2}
+    saturation={0.2}
+    hueShift={240}
+  
+  />
+
+    <Routes>
+      <Route path='/' element={authUser ? <ChatPage /> : <Navigate to={"/login"} />} />
+      <Route path='/login' element={!authUser ? <Login /> : <Navigate to={"/"} />} />
+      <Route path='/signup' element={!authUser ? <Signup /> : <Navigate to={"/"} />} />
+    </Routes>
+    <Toaster />
+    </div>
   )
 }
 
