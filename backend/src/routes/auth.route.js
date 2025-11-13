@@ -11,7 +11,7 @@ router.route("/signup").post(Signup)
 router.route("/login").post(Login)
 router.route("/logout").post(Logout)
 
-router.route("/update-profile").post(authMiddlware, upload.single("image"), updateProfile)
+router.route("/update-profile").put(authMiddlware, upload.single("image"), updateProfile)
 router.route("/check").get(authMiddlware,(req,res)=> res.status(200).json(req.user))
 
 export default router

@@ -6,7 +6,7 @@ import { arcjetProtection } from "../middleware/arcjet.middleware.js"
 const router = express.Router()
 router.use(arcjetProtection,authMiddlware)
 
-router.route("/contacts").get( getUserByUsername)
+router.route("/contacts").post( getUserByUsername)
 router.route("/chats").get( getChatPartners)
 router.route("/:id").get( getMessagesByUserId)
 router.route("/send/:id").post( sendMessage)

@@ -1,3 +1,4 @@
+import { getReceiversocketId, io } from "../lib/socket.js";
 import Message from "../models/message.model.js";
 import User from "../models/user.model.js";
 import { v2 as cloudinary } from "cloudinary";
@@ -21,10 +22,10 @@ export const getUserByUsername = async (req, res) => {
         message: "User not found",
       });
     }
-    if (userId == user._id) {
-      return res.json({
+    if (String(userId) == String(user._id)) {
+      return res.status(400).json({
         success: false,
-        message: "TypeDifferent USername",
+        message: "Type Different USername",
       });
     }
 
@@ -85,6 +86,10 @@ export const sendMessage = async (req, res) => {
       image: imageUrl,
     });
     await newMessage.save();
+    const receiverSocketId = getReceiversocketId(receiverId)
+    if(receiverSocketId){
+      io.to(receiverSocketId).emit("newMessage", newMessage)
+    }
     res.status(201).json({
       message: "message sent successfuly",
       newMessage,
